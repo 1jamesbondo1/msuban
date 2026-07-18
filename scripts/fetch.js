@@ -55,6 +55,68 @@ async function fetchBatch(addresses, attempt = 1) {
   }
 }
 
+// Maintains data/ban-history.json — a persistent per-address record of every
+// distinct ban period ever observed, so we can tell repeat offenders apart
+// from addresses banned once and never again.
+function updateBanHistory(results, checkedAt) {
+  const historyPath = path.join("data", "ban-history.json");
+  let history = {};
+  if (fs.existsSync(historyPath)) {
+    history = JSON.parse(fs.readFileSync(historyPath, "utf-8"));
+  }
+
+  for (const r of results) {
+    const addr = r.address;
+    const isBanned = !!r.banInfo?.banned;
+
+    if (!history[addr]) {
+      history[addr] = {
+        timesBanned: 0,
+        currentlyBanned: false,
+        periods: [],
+        lastCheckedAt: checkedAt,
+      };
+    }
+    const entry = history[addr];
+    entry.lastCheckedAt = checkedAt;
+
+    if (isBanned) {
+      const lastPeriod = entry.periods[entry.periods.length - 1];
+      // A "new" ban period is one we haven't already recorded — either there's
+      // no prior period, the prior one was closed out (address was clean in
+      // between), or the API's own banStartAt doesn't match what we have.
+      const isNewPeriod =
+        !lastPeriod ||
+        lastPeriod.closed === true ||
+        lastPeriod.banStartAt !== (r.banInfo.banStartAt || null);
+
+      if (isNewPeriod) {
+        entry.periods.push({
+          banStartAt: r.banInfo.banStartAt || null,
+          banEndAt: r.banInfo.banEndAt || null,
+          isPermanentBan: !!r.banInfo.isPermanentBan,
+          closed: false,
+        });
+        entry.timesBanned += 1;
+      } else {
+        // Same ongoing ban — just refresh in case end date or permanence changed
+        lastPeriod.banEndAt = r.banInfo.banEndAt || lastPeriod.banEndAt;
+        lastPeriod.isPermanentBan = !!r.banInfo.isPermanentBan;
+      }
+      entry.currentlyBanned = true;
+    } else {
+      const lastPeriod = entry.periods[entry.periods.length - 1];
+      if (lastPeriod && !lastPeriod.closed) {
+        lastPeriod.closed = true;
+      }
+      entry.currentlyBanned = false;
+    }
+  }
+
+  fs.writeFileSync(historyPath, JSON.stringify(history, null, 2));
+  return history;
+}
+
 async function main() {
   const addressesPath = path.join("data", "addresses.json");
   const addresses = JSON.parse(fs.readFileSync(addressesPath, "utf-8"));
@@ -110,9 +172,15 @@ async function main() {
   }
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
+  const banHistory = updateBanHistory(allResults, record.checkedAt);
+  const repeatOffenders = Object.values(banHistory).filter(
+    (e) => e.timesBanned > 1
+  ).length;
+
   const bannedCount = allResults.filter((r) => r.banInfo?.banned).length;
   console.log(
-    `Done. ${bannedCount}/${allResults.length} addresses currently banned.`
+    `Done. ${bannedCount}/${allResults.length} addresses currently banned. ` +
+    `${repeatOffenders} repeat offender(s) in ban history.`
   );
 }
 

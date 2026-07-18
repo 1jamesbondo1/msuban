@@ -59,6 +59,7 @@
   .pill.banned { background: rgba(239,68,68,0.15); color: var(--red); }
   .pill.perm { background: rgba(239,68,68,0.25); color: var(--red); }
   .pill.ok { background: rgba(34,197,94,0.15); color: var(--green); }
+  .pill.repeat { background: rgba(99,102,241,0.18); color: #a5a8ff; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   .empty { color: var(--muted); padding: 24px; text-align: center; }
   canvas { max-height: 320px; }
@@ -166,18 +167,28 @@ async function main() {
     // No players.json yet — table will just show addresses without character info
   }
 
+  // --- Ban history lookup (repeat-offender counts) — optional, may not exist yet ---
+  let banHistory = {};
+  try {
+    banHistory = await loadJSON("data/ban-history.json");
+  } catch (err) {
+    // No ban-history.json yet — repeat-offender badge just won't show
+  }
+
   // --- Summary cards ---
   const results = latest.results || [];
   const banned = results.filter(r => r.banInfo?.banned);
   const permanent = banned.filter(r => r.banInfo?.isPermanentBan);
   const temporary = banned.filter(r => r.banInfo && !r.banInfo.isPermanentBan);
   const errors = results.filter(r => r.error);
+  const repeatOffenderCount = Object.values(banHistory).filter(e => e.timesBanned > 1).length;
 
   const cards = [
     { label: "Total addresses", value: results.length, cls: "" },
     { label: "Currently banned", value: banned.length, cls: "red" },
     { label: "Permanent bans", value: permanent.length, cls: "red" },
     { label: "Temporary bans", value: temporary.length, cls: "amber" },
+    { label: "Repeat offenders", value: repeatOffenderCount, cls: repeatOffenderCount ? "amber" : "" },
     { label: "Clean", value: results.length - banned.length, cls: "green" },
     { label: "Errors", value: errors.length, cls: errors.length ? "amber" : "" },
   ];
@@ -272,11 +283,18 @@ async function main() {
 
       const attackPower = top?.attackPower ? formatNumber(top.attackPower) : "—";
 
+      const histEntry = banHistory[r.address];
+      const timesBanned = histEntry?.timesBanned || 1;
+      const repeatBadge = timesBanned > 1
+        ? `<span class="pill repeat">Repeat ×${timesBanned}</span>`
+        : `<span class="char-extra">First offense</span>`;
+
       return `
         <tr>
           <td>${charCell}</td>
           <td class="mono">${r.address}</td>
           <td>${attackPower}</td>
+          <td>${repeatBadge}</td>
           <td><span class="pill ${r.banInfo.isPermanentBan ? "perm" : "banned"}">
             ${r.banInfo.isPermanentBan ? "Permanent" : "Temporary"}
           </span></td>
@@ -290,7 +308,7 @@ async function main() {
     document.getElementById("bannedTableWrap").innerHTML = `
       <table>
         <thead>
-          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
+          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>History</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
