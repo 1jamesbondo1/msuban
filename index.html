@@ -65,9 +65,9 @@
   canvas { max-height: 320px; }
   .char-cell { display: flex; align-items: center; gap: 14px; }
   .char-avatar {
-    width: 64px;
-    height: 64px;
-    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
     background: #0f1115;
     border: 1px solid var(--border);
     object-fit: cover;
@@ -78,10 +78,58 @@
     align-items: center;
     justify-content: center;
     color: var(--muted);
-    font-size: 18px;
+    font-size: 12px;
   }
   .char-name { font-weight: 600; font-size: 13px; }
   .char-extra { color: var(--muted); font-size: 11px; }
+  .char-link { color: inherit; text-decoration: none; }
+  .char-link:hover .char-name { text-decoration: underline; color: var(--accent); }
+
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: rgba(99,102,241,0.15);
+    border-color: var(--accent);
+    color: #c7c9ff;
+  }
+
+  .footnote { color: var(--muted); font-size: 11px; margin: -8px 0 24px; }
+
+  .banner {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 20px 0 4px;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+  .banner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border);
+  }
+  .banner-btn.donate { background: rgba(34,197,94,0.12); color: var(--green); border-color: rgba(34,197,94,0.3); }
+  .banner-btn.donate:hover { background: rgba(34,197,94,0.2); }
+  .banner-btn.subscribe { background: rgba(239,68,68,0.12); color: var(--red); border-color: rgba(239,68,68,0.3); }
+  .banner-btn.subscribe:hover { background: rgba(239,68,68,0.2); }
 </style>
 </head>
 <body>
@@ -97,8 +145,18 @@
 </div>
 
 <div class="panel">
-  <h2>Currently banned addresses</h2>
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabCurrentBtn" onclick="switchTab('current')">Currently banned addresses</button>
+    <button class="tab-btn" id="tabPreviousBtn" onclick="switchTab('previous')">Previously banned addresses</button>
+  </div>
   <div id="bannedTableWrap"></div>
+  <div id="previousBannedTableWrap" style="display:none;"></div>
+  <div class="footnote">* History only tracks active bans since Jul 18, 2026. Previous bans (before that date) are not tracked.</div>
+</div>
+
+<div class="banner">
+  <a class="banner-btn donate" href="ethereum:0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA" onclick="copyDonateAddress(event)" title="0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA">Click here to Donate</a>
+  <a class="banner-btn subscribe" href="https://www.youtube.com/@arcanevorki" target="_blank" rel="noopener noreferrer">Sub to uTube</a>
 </div>
 
 <script>
@@ -133,6 +191,93 @@ function formatNumber(val) {
   const n = Number(val);
   if (Number.isNaN(n)) return String(val);
   return n.toLocaleString();
+}
+
+function charPageUrl(characterAssetKey) {
+  return `https://msu.io/navigator/character/${characterAssetKey}`;
+}
+
+// Renders one table row. `ban` is { isPermanentBan, banStartAt, banEndAt, isActive }.
+// `isActive` controls whether we show a "days left" countdown (current bans) or not (past bans).
+function renderAddressRow(address, ban, walletToPlayers, banHistory) {
+  const matches = walletToPlayers[address] || [];
+  const top = matches[0] || null;
+  const extraCount = matches.length > 1 ? matches.length - 1 : 0;
+
+  const avatarHtml = top?.imageUrl
+    ? `<img class="char-avatar" src="${top.imageUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=&quot;char-avatar placeholder&quot;>?</div>'" />`
+    : `<div class="char-avatar placeholder">?</div>`;
+
+  const charCell = top
+    ? `
+      <a class="char-link" href="${charPageUrl(top.characterAssetKey)}" target="_blank" rel="noopener noreferrer">
+        <div class="char-cell">
+          ${avatarHtml}
+          <div>
+            <div class="char-name">${escapeHtml(top.characterName || "Unknown")}</div>
+            <div class="char-extra">Rank #${top.rank ?? "—"}${extraCount ? ` · +${extraCount} more` : ""}</div>
+          </div>
+        </div>
+      </a>
+    `
+    : `<span class="char-extra">No character match</span>`;
+
+  const attackPower = top?.attackPower ? formatNumber(top.attackPower) : "—";
+
+  const histEntry = banHistory[address];
+  const timesBanned = histEntry?.timesBanned || 1;
+  const repeatBadge = timesBanned > 1
+    ? `<span class="pill repeat">Repeat ×${timesBanned}</span>`
+    : `<span class="char-extra">First offense</span>`;
+
+  const dLeft = ban.isActive ? daysUntil(ban.banEndAt) : null;
+
+  return `
+    <tr>
+      <td>${charCell}</td>
+      <td class="mono">${address}</td>
+      <td>${attackPower}</td>
+      <td>${repeatBadge}</td>
+      <td><span class="pill ${ban.isPermanentBan ? "perm" : "banned"}">
+        ${ban.isPermanentBan ? "Permanent" : "Temporary"}
+      </span></td>
+      <td>${fmtDate(ban.banStartAt)}</td>
+      <td>${ban.isPermanentBan ? "—" : fmtDate(ban.banEndAt)}</td>
+      <td>${ban.isActive ? (ban.isPermanentBan ? "—" : (dLeft !== null ? `${dLeft}d` : "—")) : "—"}</td>
+    </tr>
+  `;
+}
+
+function switchTab(tab) {
+  const currentWrap = document.getElementById("bannedTableWrap");
+  const previousWrap = document.getElementById("previousBannedTableWrap");
+  const currentBtn = document.getElementById("tabCurrentBtn");
+  const previousBtn = document.getElementById("tabPreviousBtn");
+  if (tab === "current") {
+    currentWrap.style.display = "";
+    previousWrap.style.display = "none";
+    currentBtn.classList.add("active");
+    previousBtn.classList.remove("active");
+  } else {
+    currentWrap.style.display = "none";
+    previousWrap.style.display = "";
+    currentBtn.classList.remove("active");
+    previousBtn.classList.add("active");
+  }
+}
+
+function copyDonateAddress(event) {
+  const address = "0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA";
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(address).then(() => {
+      const btn = event.currentTarget;
+      const original = btn.textContent;
+      btn.textContent = "Address copied!";
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    }).catch(() => {});
+  }
+  // Let the ethereum: link also attempt to fire for wallet-extension users;
+  // don't preventDefault so both behaviors can happen.
 }
 
 async function main() {
@@ -255,60 +400,49 @@ async function main() {
       `<div class="empty">Chart failed to render: ${err.message}</div>`;
   }
 
-  // --- Banned addresses table ---
+  // --- Currently banned addresses table ---
   if (banned.length === 0) {
     document.getElementById("bannedTableWrap").innerHTML =
       `<div class="empty">No banned addresses right now.</div>`;
   } else {
-    const rows = banned.map(r => {
-      const dLeft = daysUntil(r.banInfo.banEndAt);
-      const matches = walletToPlayers[r.address] || [];
-      const top = matches[0] || null;
-      const extraCount = matches.length > 1 ? matches.length - 1 : 0;
-
-      const charCell = top
-        ? `
-          <div class="char-cell">
-            ${top.imageUrl
-              ? `<img class="char-avatar" src="${top.imageUrl}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=&quot;char-avatar placeholder&quot;>?</div>'" />`
-              : `<div class="char-avatar placeholder">?</div>`
-            }
-            <div>
-              <div class="char-name">${escapeHtml(top.characterName || "Unknown")}</div>
-              <div class="char-extra">Rank #${top.rank ?? "—"}${extraCount ? ` · +${extraCount} more` : ""}</div>
-            </div>
-          </div>
-        `
-        : `<span class="char-extra">No character match</span>`;
-
-      const attackPower = top?.attackPower ? formatNumber(top.attackPower) : "—";
-
-      const histEntry = banHistory[r.address];
-      const timesBanned = histEntry?.timesBanned || 1;
-      const repeatBadge = timesBanned > 1
-        ? `<span class="pill repeat">Repeat ×${timesBanned}</span>`
-        : `<span class="char-extra">First offense</span>`;
-
-      return `
-        <tr>
-          <td>${charCell}</td>
-          <td class="mono">${r.address}</td>
-          <td>${attackPower}</td>
-          <td>${repeatBadge}</td>
-          <td><span class="pill ${r.banInfo.isPermanentBan ? "perm" : "banned"}">
-            ${r.banInfo.isPermanentBan ? "Permanent" : "Temporary"}
-          </span></td>
-          <td>${fmtDate(r.banInfo.banStartAt)}</td>
-          <td>${r.banInfo.isPermanentBan ? "—" : fmtDate(r.banInfo.banEndAt)}</td>
-          <td>${r.banInfo.isPermanentBan ? "—" : (dLeft !== null ? `${dLeft}d` : "—")}</td>
-        </tr>
-      `;
-    }).join("");
+    const rows = banned.map(r => renderAddressRow(
+      r.address,
+      { isPermanentBan: r.banInfo.isPermanentBan, banStartAt: r.banInfo.banStartAt, banEndAt: r.banInfo.banEndAt, isActive: true },
+      walletToPlayers,
+      banHistory
+    )).join("");
 
     document.getElementById("bannedTableWrap").innerHTML = `
       <table>
         <thead>
-          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>History</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
+          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  // --- Previously banned addresses table (bans that have since expired) ---
+  const currentlyBannedSet = new Set(banned.map(r => r.address));
+  const previouslyBanned = Object.entries(banHistory)
+    .filter(([addr, entry]) => !currentlyBannedSet.has(addr) && entry.periods && entry.periods.length > 0)
+    .map(([addr, entry]) => ({ address: addr, lastPeriod: entry.periods[entry.periods.length - 1] }));
+
+  if (previouslyBanned.length === 0) {
+    document.getElementById("previousBannedTableWrap").innerHTML =
+      `<div class="empty">No previously-banned addresses recorded yet.</div>`;
+  } else {
+    const rows = previouslyBanned.map(({ address, lastPeriod }) => renderAddressRow(
+      address,
+      { isPermanentBan: lastPeriod.isPermanentBan, banStartAt: lastPeriod.banStartAt, banEndAt: lastPeriod.banEndAt, isActive: false },
+      walletToPlayers,
+      banHistory
+    )).join("");
+
+    document.getElementById("previousBannedTableWrap").innerHTML = `
+      <table>
+        <thead>
+          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ended</th><th>Days left</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
