@@ -52,6 +52,30 @@ The cron in `.github/workflows/daily-check.yml` is set to `0 13 * * *` (13:00 UT
 GitHub Actions cron times are always UTC — adjust the hour to whenever you want it to run.
 Note: scheduled jobs on free GitHub accounts can be delayed by a few minutes during high load; that's normal.
 
+## Building the top-5000 player/wallet list
+
+`scripts/build-player-list.js` pulls the leaderboard and resolves each character to a
+wallet address + attack power, then writes:
+
+- `data/players.json` — full detail per player (rank, name, level, wallet, attack power)
+- `data/addresses.json` — deduped wallet addresses, which is what `scripts/fetch.js` reads
+  for the daily ban check
+
+Run it manually from the **Actions** tab → "Build Player & Wallet List" → "Run workflow"
+(you can override how many players to pull there, default 5000). It's also scheduled to
+run weekly on Sundays — rankings don't shift enough to justify pulling them daily. Comment
+out or remove the `schedule:` block in that workflow if you'd rather trigger it by hand only.
+
+This does ~500 ranking requests plus one request per character (up to 5000), run 5-at-a-time
+with a small delay between each. Expect it to take a while the first time — check the Actions
+log for progress. If you see failures piling up, lower `CONCURRENCY` or raise `DELAY_MS` as
+env vars in the workflow file.
+
+Note this **overwrites** `data/addresses.json` each time it runs — it always reflects the
+current top-N leaderboard, not an accumulated list. If you want to track wallets you've
+manually added on top of the leaderboard, keep those in a separate file rather than editing
+`addresses.json` directly, since this script will replace it wholesale.
+
 ## Scaling to 5000 addresses
 
 At 5000 addresses ÷ 50 per batch = 100 requests/day, spaced 400ms apart by default —
