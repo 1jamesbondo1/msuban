@@ -100,6 +100,7 @@ async function fetchCharacterDetails(entries) {
         classCode: entry.classCode,
         jobCode: entry.jobCode,
         guildName: entry.guildName,
+        imageUrl: entry.imageUrl || null,
         walletAddr: c?.owner?.walletAddr || null,
         attackPower: c?.apStat?.attackPower || null,
       });
@@ -110,6 +111,7 @@ async function fetchCharacterDetails(entries) {
         characterAssetKey: entry.characterAssetKey,
         characterName: entry.characterName,
         level: entry.level,
+        imageUrl: entry.imageUrl || null,
         walletAddr: null,
         attackPower: null,
         error: err.message,
