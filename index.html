@@ -155,18 +155,17 @@
 <div class="cards" id="cards"></div>
 
 <div class="panel">
-  <h2>Banned addresses over time</h2>
-  <canvas id="historyChart"></canvas>
-</div>
-
-<div class="panel">
   <div class="tab-bar">
     <button class="tab-btn active" id="tabCurrentBtn" onclick="switchTab('current')">Currently banned addresses</button>
     <button class="tab-btn" id="tabPreviousBtn" onclick="switchTab('previous')">Previously banned addresses</button>
+    <button class="tab-btn" id="tabTrendBtn" onclick="switchTab('trend')">Banned addresses over time</button>
   </div>
   <div id="bannedTableWrap"></div>
   <div id="previousBannedTableWrap" style="display:none;"></div>
-  <div class="footnote">* History only tracks active bans since Jul 18, 2026. Previous bans (before that date) are not tracked.</div>
+  <div id="trendTabWrap" style="display:none;">
+    <canvas id="historyChart"></canvas>
+  </div>
+  <div class="footnote" id="historyFootnote">* History only tracks active bans since Jul 18, 2026. Previous bans (before that date) are not tracked.</div>
 </div>
 
 <div class="banner">
@@ -184,6 +183,8 @@ async function loadJSON(path) {
   if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
   return res.json();
 }
+
+let historyChartInstance = null;
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -264,20 +265,27 @@ function renderAddressRow(address, ban, walletToPlayers, banHistory) {
 }
 
 function switchTab(tab) {
-  const currentWrap = document.getElementById("bannedTableWrap");
-  const previousWrap = document.getElementById("previousBannedTableWrap");
-  const currentBtn = document.getElementById("tabCurrentBtn");
-  const previousBtn = document.getElementById("tabPreviousBtn");
-  if (tab === "current") {
-    currentWrap.style.display = "";
-    previousWrap.style.display = "none";
-    currentBtn.classList.add("active");
-    previousBtn.classList.remove("active");
-  } else {
-    currentWrap.style.display = "none";
-    previousWrap.style.display = "";
-    currentBtn.classList.remove("active");
-    previousBtn.classList.add("active");
+  const wraps = {
+    current: document.getElementById("bannedTableWrap"),
+    previous: document.getElementById("previousBannedTableWrap"),
+    trend: document.getElementById("trendTabWrap"),
+  };
+  const btns = {
+    current: document.getElementById("tabCurrentBtn"),
+    previous: document.getElementById("tabPreviousBtn"),
+    trend: document.getElementById("tabTrendBtn"),
+  };
+  for (const key in wraps) {
+    wraps[key].style.display = key === tab ? "" : "none";
+    btns[key].classList.toggle("active", key === tab);
+  }
+  document.getElementById("historyFootnote").style.display = tab === "trend" ? "none" : "";
+
+  if (tab === "trend" && historyChartInstance) {
+    // The chart was created while this tab was display:none, so Chart.js
+    // couldn't measure the canvas correctly at creation time — resize now
+    // that it's actually visible.
+    requestAnimationFrame(() => historyChartInstance.resize());
   }
 }
 
@@ -377,7 +385,7 @@ async function main() {
   });
 
   try {
-    new Chart(document.getElementById("historyChart"), {
+    historyChartInstance = new Chart(document.getElementById("historyChart"), {
       type: "line",
       data: {
         labels,
@@ -430,7 +438,7 @@ async function main() {
     document.getElementById("bannedTableWrap").innerHTML = `
       <table>
         <thead>
-          <tr><th>Character</th><th>Address</th><th>Combat Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
+          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -457,7 +465,7 @@ async function main() {
     document.getElementById("previousBannedTableWrap").innerHTML = `
       <table>
         <thead>
-          <tr><th>Character</th><th>Address</th><th>Combat Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ended</th><th>Days left</th></tr>
+          <tr><th>Character</th><th>Address</th><th>Attack Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ended</th><th>Days left</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
