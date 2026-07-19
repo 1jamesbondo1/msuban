@@ -180,8 +180,8 @@
 </div>
 
 <div class="banner">
-  <a class="banner-btn donate" href="ethereum:0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA" onclick="copyDonateAddress(event)" title="0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA">Click here to Donate</a>
-  <a class="banner-btn subscribe" href="https://www.youtube.com/@arcanevorki" target="_blank" rel="noopener noreferrer">Sub to uTube</a>
+  <a class="banner-btn donate" href="https://msu.io/marketplace/inventory/0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA" target="_blank" rel="noopener noreferrer">Donate?</a>
+  <a class="banner-btn subscribe" href="https://www.youtube.com/@arcanevorki" target="_blank" rel="noopener noreferrer">Sub to YouTube</a>
 </div>
 
 <script>
@@ -298,20 +298,6 @@ function switchTab(tab) {
     // that it's actually visible.
     requestAnimationFrame(() => historyChartInstance.resize());
   }
-}
-
-function copyDonateAddress(event) {
-  const address = "0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA";
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(address).then(() => {
-      const btn = event.currentTarget;
-      const original = btn.textContent;
-      btn.textContent = "Address copied!";
-      setTimeout(() => { btn.textContent = original; }, 1500);
-    }).catch(() => {});
-  }
-  // Let the ethereum: link also attempt to fire for wallet-extension users;
-  // don't preventDefault so both behaviors can happen.
 }
 
 async function main() {
