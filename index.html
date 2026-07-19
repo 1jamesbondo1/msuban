@@ -121,6 +121,21 @@
     color: #c7c9ff;
   }
 
+  .tier-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tier-filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .tier-filter-btn.active { border-color: var(--accent); color: var(--text); background: rgba(99,102,241,0.12); }
+
   .footnote { color: var(--muted); font-size: 11px; margin: -8px 0 24px; }
 
   .banner {
@@ -171,7 +186,10 @@
     <button class="tab-btn" id="tabPreviousBtn" onclick="switchTab('previous')">Previously banned addresses</button>
     <button class="tab-btn" id="tabTrendBtn" onclick="switchTab('trend')">Banned addresses over time</button>
   </div>
-  <div id="bannedTableWrap"></div>
+  <div id="bannedTableWrap">
+    <div class="tier-filter-bar" id="bannedDateFilterBar"></div>
+    <div id="bannedTableInner"></div>
+  </div>
   <div id="previousBannedTableWrap" style="display:none;"></div>
   <div id="trendTabWrap" style="display:none;">
     <canvas id="historyChart"></canvas>
@@ -196,6 +214,10 @@ async function loadJSON(path) {
 }
 
 let historyChartInstance = null;
+let cachedBannedResults = [];
+let cachedWalletToPlayers = {};
+let cachedBanHistory = {};
+let activeBannedDateFilter = "All";
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -272,6 +294,56 @@ function renderAddressRow(address, ban, walletToPlayers, banHistory) {
       <td>${ban.isPermanentBan ? "—" : fmtDate(ban.banEndAt)}</td>
       <td>${ban.isActive ? (ban.isPermanentBan ? "—" : (dLeft !== null ? `${dLeft}d` : "—")) : "—"}</td>
     </tr>
+  `;
+}
+
+const BANNED_DATE_FILTER_OPTIONS = ["All", "Last 30 days", "Last 7 days"];
+
+function renderBannedDateFilterBar() {
+  document.getElementById("bannedDateFilterBar").innerHTML = BANNED_DATE_FILTER_OPTIONS.map(f => `
+    <button class="tier-filter-btn ${f === activeBannedDateFilter ? "active" : ""}" onclick="setBannedDateFilter('${f}')">${f}</button>
+  `).join("");
+}
+
+function setBannedDateFilter(filter) {
+  activeBannedDateFilter = filter;
+  renderBannedDateFilterBar();
+  renderBannedTable();
+}
+
+function renderBannedTable() {
+  let filtered = cachedBannedResults;
+
+  if (activeBannedDateFilter !== "All") {
+    const cutoffDays = activeBannedDateFilter === "Last 30 days" ? 30 : 7;
+    const cutoffMs = Date.now() - cutoffDays * 24 * 60 * 60 * 1000;
+    filtered = cachedBannedResults.filter(r => {
+      const start = r.banInfo?.banStartAt;
+      if (!start) return false;
+      return new Date(start).getTime() >= cutoffMs;
+    });
+  }
+
+  if (filtered.length === 0) {
+    document.getElementById("bannedTableInner").innerHTML =
+      `<div class="empty">${cachedBannedResults.length === 0 ? "No banned addresses right now." : "No banned addresses detected in this window."}</div>`;
+    return;
+  }
+
+  const rows = filtered.map(r => renderAddressRow(
+    r.address,
+    { isPermanentBan: r.banInfo.isPermanentBan, banStartAt: r.banInfo.banStartAt, banEndAt: r.banInfo.banEndAt, isActive: true },
+    cachedWalletToPlayers,
+    cachedBanHistory
+  )).join("");
+
+  document.getElementById("bannedTableInner").innerHTML = `
+    <table>
+      <thead>
+        <tr><th>Character</th><th>Address</th><th>Combat Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
   `;
 }
 
@@ -421,26 +493,11 @@ async function main() {
   }
 
   // --- Currently banned addresses table ---
-  if (banned.length === 0) {
-    document.getElementById("bannedTableWrap").innerHTML =
-      `<div class="empty">No banned addresses right now.</div>`;
-  } else {
-    const rows = banned.map(r => renderAddressRow(
-      r.address,
-      { isPermanentBan: r.banInfo.isPermanentBan, banStartAt: r.banInfo.banStartAt, banEndAt: r.banInfo.banEndAt, isActive: true },
-      walletToPlayers,
-      banHistory
-    )).join("");
-
-    document.getElementById("bannedTableWrap").innerHTML = `
-      <table>
-        <thead>
-          <tr><th>Character</th><th>Address</th><th>Combat Power</th><th>History*</th><th>Type</th><th>Banned since</th><th>Ends</th><th>Days left</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-  }
+  cachedBannedResults = banned;
+  cachedWalletToPlayers = walletToPlayers;
+  cachedBanHistory = banHistory;
+  renderBannedDateFilterBar();
+  renderBannedTable();
 
   // --- Previously banned addresses table (bans that have since expired) ---
   const currentlyBannedSet = new Set(banned.map(r => r.address));
