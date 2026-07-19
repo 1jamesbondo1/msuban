@@ -65,9 +65,9 @@
   canvas { max-height: 320px; }
   .char-cell { display: flex; align-items: center; gap: 14px; }
   .char-avatar {
-    width: 54px;
-    height: 54px;
-    border-radius: 8px;
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
     background: #0f1115;
     border: 1px solid var(--border);
     object-fit: cover;
@@ -78,7 +78,7 @@
     align-items: center;
     justify-content: center;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 20px;
   }
   .char-name { font-weight: 600; font-size: 13px; }
   .char-extra { color: var(--muted); font-size: 11px; }
@@ -155,8 +155,8 @@
 </div>
 
 <div class="banner">
-  <a class="banner-btn donate" href="https://msu.io/marketplace/inventory/0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA" target="_blank" rel="noopener noreferrer">Donate?</a>
-  <a class="banner-btn subscribe" href="https://www.youtube.com/@arcanevorki" target="_blank" rel="noopener noreferrer">Sub to YouTube</a>
+  <a class="banner-btn donate" href="ethereum:0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA" onclick="copyDonateAddress(event)" title="0xCfA397cCF402cAedbd595F7dA8C39E8e919820EA">Click here to Donate</a>
+  <a class="banner-btn subscribe" href="https://www.youtube.com/@arcanevorki" target="_blank" rel="noopener noreferrer">Sub to uTube</a>
 </div>
 
 <script>
