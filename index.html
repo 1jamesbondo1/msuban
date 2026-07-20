@@ -26,6 +26,21 @@
     padding-bottom: 110px;
   }
   .creator-credit { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+
+  .top-nav { display: flex; gap: 8px; margin-bottom: 16px; }
+  .top-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .top-nav-btn.active { border-color: var(--accent); color: #c7c9ff; background: rgba(99,102,241,0.12); }
+  .top-nav-btn:not(.active):hover { color: var(--text); border-color: var(--accent); }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
   .cards {
@@ -174,6 +189,11 @@
 <body>
 
 <div class="creator-credit">Created by ArcaneVorki</div>
+
+<div class="top-nav">
+  <span class="top-nav-btn active">Ban Tracker</span>
+  <a class="top-nav-btn" href="https://arcanevorki.github.io/msumvp/">MVP Dashboard</a>
+</div>
 
 <h1>Top 5000 Player Ban Tracker</h1>
 <div class="subtitle" id="subtitle">Loading data…</div>
