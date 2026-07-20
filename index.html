@@ -317,7 +317,7 @@ function renderAddressRow(address, ban, walletToPlayers, banHistory) {
   `;
 }
 
-const BANNED_DATE_FILTER_OPTIONS = ["All", "Last 30 days", "Last 7 days", "Last 24 hours"];
+const BANNED_DATE_FILTER_OPTIONS = ["All", "Last 30 days", "Last 7 days", "Last 48 hours"];
 
 function renderBannedDateFilterBar() {
   document.getElementById("bannedDateFilterBar").innerHTML = BANNED_DATE_FILTER_OPTIONS.map(f => `
@@ -338,7 +338,7 @@ function renderBannedTable() {
     const cutoffHours = {
       "Last 30 days": 30 * 24,
       "Last 7 days": 7 * 24,
-      "Last 24 hours": 24,
+      "Last 48 hours": 48,
     }[activeBannedDateFilter];
     const cutoffMs = Date.now() - cutoffHours * 60 * 60 * 1000;
     filtered = cachedBannedResults.filter(r => {
